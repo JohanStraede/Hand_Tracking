@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.VFX;
 
-public class PortalChargeHold_AutoDetect : MonoBehaviour
+public class P_Presser : MonoBehaviour
 {
     [Header("Key")]
     [SerializeField] KeyCode legacyKey = KeyCode.P;   // Old Input Manager fallback
@@ -20,6 +20,7 @@ public class PortalChargeHold_AutoDetect : MonoBehaviour
     void Awake()
     {
         vfx = GetComponent<VisualEffect>();
+        Debug.Log("[Portal] Awake: VisualEffect component found: " + vfx);
         if (!vfx)
         {
             Debug.LogError("[Portal] No VisualEffect component found.");
@@ -53,6 +54,7 @@ public class PortalChargeHold_AutoDetect : MonoBehaviour
             down = kbd.pKey.wasPressedThisFrame;
             up   = kbd.pKey.wasReleasedThisFrame;
             held = kbd.pKey.isPressed;
+            
         }
 #endif
         // Legacy fallback (also works if Active Input Handling = Both)
@@ -68,6 +70,7 @@ public class PortalChargeHold_AutoDetect : MonoBehaviour
             vfx.Reinit(); // optional reset of the graph
             vfx.Play();
             Debug.Log("[Portal] P down → starting ramp.");
+
         }
 
         if (isHeld)

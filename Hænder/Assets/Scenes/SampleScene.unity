@@ -459,7 +459,7 @@ VisualEffect:
       m_Array:
       - m_Value: 0.5
         m_Name: Portal radius
-        m_Overridden: 1
+        m_Overridden: 0
       - m_Value: 8
         m_Name: Tangent speed
         m_Overridden: 0
@@ -478,7 +478,7 @@ VisualEffect:
       m_Array:
       - m_Value: 10000
         m_Name: Spawn rate
-        m_Overridden: 1
+        m_Overridden: 0
     m_Matrix4x4f:
       m_Array: []
     m_AnimationCurve:
@@ -516,7 +516,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4e056b985e90243c89a0bdcd1a538c48, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  legacyKey: 112
+  legacyKey: 110
   rampDuration: 5
   maxSpawnRate: 10000
 --- !u!1 &622364582
