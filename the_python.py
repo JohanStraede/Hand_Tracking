@@ -22,12 +22,30 @@ import numpy as np
 from typing import Sequence, Any, cast
 import time
 import math
+import sys
+
+# OSC (optional)
+try:
+	from pythonosc.udp_client import SimpleUDPClient  # type: ignore
+except Exception:
+	SimpleUDPClient = None  # type: ignore
+	print("python-osc not installed; OSC transmitter disabled.", file=sys.stderr)
 
 
 # Import specific MediaPipe solution modules to satisfy type checkers
 from mediapipe.python.solutions import hands as mp_hands
 from mediapipe.python.solutions import drawing_utils as mp_drawing
 from mediapipe.python.solutions import drawing_styles as mp_styles
+
+from pythonosc.udp_client import SimpleUDPClient
+
+# Target IP/port (adjust to your receiver)
+client = SimpleUDPClient("127.0.0.1", 9000)
+
+# Send some values
+client.send_message("/spell", 1)          # int/bool
+client.send_message("/right/moving", 0.7) # float
+client.send_message("/hand/state", ["R", "open"])  # list
 
 
 def count_fingers(landmarks: Sequence, handedness_label: str) -> int:
@@ -154,6 +172,16 @@ def main() -> None:
 		# Persistent indicator (always drawn); value reflects current-frame gesture status
 		spell_on = False
 
+		# OSC transmitter (always on if available)
+		OSC_IP = "127.0.0.1"
+		OSC_PORT = 9000
+		osc_client = None
+		if SimpleUDPClient is not None:
+			try:
+				osc_client = SimpleUDPClient(OSC_IP, OSC_PORT)
+			except Exception as e:
+				print(f"Failed to create OSC client to {OSC_IP}:{OSC_PORT}: {e}", file=sys.stderr)
+
 		# Right-hand simple movement tracking (wrist speed)
 		right_prev_pos = None    # type: tuple[float, float] | None  # (x,y) normalized
 		right_prev_time = None   # type: float | None
@@ -272,6 +300,16 @@ def main() -> None:
 				2,
 				cv2.LINE_AA,
 			)
+
+			# Transmit OSC every frame if available
+			if osc_client is not None:
+				try:
+					osc_client.send_message("/spell", int(bool(spell_on)))
+					osc_client.send_message("/right/moving", int(bool(right_moving)))
+					osc_client.send_message("/right/speed", float(right_speed))
+				except Exception as e:
+					# Don't crash the loop on send errors
+					pass
 
 			cv2.imshow(window, frame)
 			key = cv2.waitKey(1) & 0xFF
