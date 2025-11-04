@@ -20,6 +20,8 @@ import cv2
 import mediapipe as mp
 import numpy as np
 from typing import Sequence, Any, cast
+import time
+import math
 
 
 # Import specific MediaPipe solution modules to satisfy type checkers
@@ -152,6 +154,13 @@ def main() -> None:
 		# Persistent indicator (always drawn); value reflects current-frame gesture status
 		spell_on = False
 
+		# Right-hand simple movement tracking (wrist speed)
+		right_prev_pos = None    # type: tuple[float, float] | None  # (x,y) normalized
+		right_prev_time = None   # type: float | None
+		right_speed = 0.0        # filtered speed (norm units per second)
+		MOV_ALPHA = 0.30        # low-pass smoothing
+		SPEED_THRESH = 0.20     # threshold to consider it moving (tune if needed)
+
 		while True:
 			ok, frame = cap.read()
 			if not ok:
@@ -171,6 +180,8 @@ def main() -> None:
 
 			both_ok = False
 			ok_count = 0
+			right_moving = False
+			right_seen_this_frame = False
 			if getattr(results, "multi_hand_landmarks", None) and getattr(results, "multi_handedness", None):
 				for hand_landmarks, hand_handedness in zip(results.multi_hand_landmarks, results.multi_handedness):
 					label = hand_handedness.classification[0].label  # "Left" or "Right"
@@ -194,6 +205,25 @@ def main() -> None:
 					)
 					ok_count += int(gesture_ok)
 
+					# Right-hand movement estimate: wrist speed
+					if label == "Right":
+						right_seen_this_frame = True
+						wrist = hand_landmarks.landmark[0]
+						pos = (wrist.x, wrist.y)
+						now = time.time()
+						if right_prev_pos is not None and right_prev_time is not None:
+							dt = now - right_prev_time
+							if dt > 1e-3:
+								dx = pos[0] - right_prev_pos[0]
+								dy = pos[1] - right_prev_pos[1]
+								inst_speed = math.hypot(dx, dy) / dt  # normalized units per second
+								# Low-pass filter for stability
+								right_speed = (1 - MOV_ALPHA) * right_speed + MOV_ALPHA * inst_speed
+						right_prev_pos = pos
+						right_prev_time = now
+						# Moving if filtered speed over threshold
+						right_moving = right_speed > SPEED_THRESH
+
 					# Annotate with label and count near the wrist (landmark 0)
 					wrist = hand_landmarks.landmark[0]
 					x_px, y_px = int(wrist.x * w), int(wrist.y * h)
@@ -209,20 +239,36 @@ def main() -> None:
 						cv2.LINE_AA,
 					)
 
+			# If right hand not seen, reset angle reference and mark not spinning
+			if not right_seen_this_frame:
+				right_prev_pos = None
+				right_prev_time = None
+				right_speed = 0.0
+				right_moving = False
+
 			# Bool is true whenever both hands satisfy the gesture in this frame
             # and false otherwise.
 			spell_on = (ok_count >= 2)
 
-			# Persistent indicator in the top-left corner
-			indicator = f"Spell: {'ON' if spell_on else 'OFF'}"
-			cv2.rectangle(frame, (8, 8), (220, 46), (50, 50, 50), -1)
+			# Persistent indicators in the top-left corner
+			cv2.rectangle(frame, (8, 8), (280, 80), (50, 50, 50), -1)
 			cv2.putText(
 				frame,
-				indicator,
+				f"Spell: {'ON' if spell_on else 'OFF'}",
 				(16, 36),
 				cv2.FONT_HERSHEY_SIMPLEX,
 				0.9,
 				(0, 255, 0) if spell_on else (0, 0, 255),
+				2,
+				cv2.LINE_AA,
+			)
+			cv2.putText(
+				frame,
+				f"Right moving: {'YES' if right_moving else 'NO'}",
+				(16, 68),
+				cv2.FONT_HERSHEY_SIMPLEX,
+				0.75,
+				(255, 215, 0) if right_moving else (200, 200, 200),
 				2,
 				cv2.LINE_AA,
 			)
